@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Cotizador de envíos</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@800&display=swap');
+        body {
+            font-family: 'Montserrat', sans-serif;
+            background-color: #f4f4f4;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+        .container {
+            background-color: #fff;
+            padding: 40px;
+            border-radius: 10px;
+            box-shadow: 0 0 15px rgba(0, 0, 0, 0.1);
+            width: 600px;
+            text-align: center;
+        }
+        h1 {
+            color: #13252B;
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            margin-top: 10px;
+            color: #173C4C;
+            font-weight: bold;
+        }
+        input, select, button {
+            width: 100%;
+            padding: 15px;
+            margin-top: 5px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-family: 'Montserrat', sans-serif;
+        }
+        input, select {
+            color: #173C4C;
+        }
+        button {
+            background-color: #00B022;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #038919;
+        }
+        #resultado, #resultadoRecepcion {
+            margin-top: 20px;
+            font-size: 1.2em;
+            color: #173C4C;
+        }
+        .desglose {
+            margin-top: 20px;
+            font-size: 1em;
+            color: #173C4C;
+            text-align: left;
+        }
+        img {
+            width: 250px;
+            margin-bottom: 20px;
+        }
+        .swap-button {
+            width: 50px;
+            padding: 10px;
+            margin-top: 5px;
+            background-color: #00B022;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 1.2em;
+        }
+        .swap-button:hover {
+            background-color: #038919;
+        }
+        .flex-container {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .tabs {
+            display: flex;
+            justify-content: space-around;
+            margin-bottom: 20px;
+        }
+        .tab {
+            cursor: pointer;
+            padding: 10px 20px;
+            border-radius: 10px;
+            background-color: #ddd;
+            flex: 1;
+            text-align: center;
+            margin: 0 5px;
+        }
+        .tab.active {
+            background-color: #00B022;
+            color: white;
+        }
+        .tab-content {
+            display: none;
+        }
+        .tab-content.active {
+            display: block;
+        }
+    </style>
+    <script>
+        const apiKey = 'f39ad72d5f098bfa2c4ab392'; 
+        const sheetDBURL = 'https://sheetdb.io/api/v1/40v2uh03f9082'; 
+
+        async function obtenerTasaCambio(monedaOrigen, monedaDestino) {
+            if (monedaOrigen === 'USD' && monedaDestino === 'COP') return 4138.50;
+            const apiUrl = `https://v6.exchangerate-api.com/v6/${apiKey}/pair/${monedaOrigen}/${monedaDestino}`;
+            try {
+                const response = await fetch(apiUrl);
+                const data = await response.json();
+                if (data.result === "success") return data.conversion_rate;
+                throw new Error(data['error-type']);
+            } catch (error) {
+                console.error("Error al obtener la tasa de cambio:", error);
+                return null;
+            }
+        }
+
+        async function calcularEnvio() {
+            const cantidad = parseFloat(document.getElementById("cantidad").value);
+            const monedaOrigen = document.getElementById("monedaOrigen").value;
+            const monedaDestino = document.getElementById("monedaDestino").value;
+            if (isNaN(cantidad) || !monedaOrigen || !monedaDestino) {
+                document.getElementById("resultado").innerText = "Por favor, complete todos los campos.";
+                return;
+            }
+            const tasaCambio = await obtenerTasaCambio(monedaOrigen, monedaDestino);
+            if (tasaCambio === null) {
+                document.getElementById("resultado").innerText = "No se pudo obtener la tasa de cambio.";
+                return;
+            }
+            let cantidadConvertida = cantidad * tasaCambio;
+            const tasaExtra = monedaOrigen === "COP" ? 0.004 : 0;
+            const cantidadAntesComision = cantidadConvertida * (1 - tasaExtra);
+            const comision = cantidadAntesComision * 0.04;
+            const cantidadFinal = cantidadAntesComision * 0.96;
+            document.getElementById("resultado").innerText = `Recibirá: ${cantidadFinal.toFixed(2)} ${monedaDestino}`;
+            document.getElementById("desgloseEnvio").innerHTML = `
+                <p><strong>Tasa de Cambio:</strong> 1 ${monedaOrigen} = ${tasaCambio.toFixed(4)} ${monedaDestino}</p>
+                <p><strong>Monto Original:</strong> ${cantidad.toFixed(2)} ${monedaOrigen}</p>
+                <p><strong>Monto Convertido:</strong> ${cantidadConvertida.toFixed(2)} ${monedaDestino}</p>
+                <p><strong>Tasa Extra (${(tasaExtra * 100).toFixed(2)}%):</strong> -${(cantidadConvertida * tasaExtra).toFixed(2)} ${monedaDestino}</p>
+                <p><strong>Monto Antes de Comisión:</strong> ${cantidadAntesComision.toFixed(2)} ${monedaDestino}</p>
+                <p><strong>Comisión (4%):</strong> -${comision.toFixed(2)} ${monedaDestino}</p>
+                <p><strong>Monto Final:</strong> ${cantidadFinal.toFixed(2)} ${monedaDestino}</p>
+            `;
+        }
+
+        async function calcularRecepcion() {
+            const cantidadDeseada = parseFloat(document.getElementById("cantidadRecibir").value);
+            const monedaOrigen = document.getElementById("monedaOrigenRecepcion").value;
+            const monedaDestino = document.getElementById("monedaDestinoRecepcion").value;
+            if (isNaN(cantidadDeseada) || !monedaOrigen || !monedaDestino) {
+                document.getElementById("resultadoRecepcion").innerText = "Por favor, complete todos los campos.";
+                return;
+            }
+            const tasaCambio = await obtenerTasaCambio(monedaOrigen, monedaDestino);
+            if (tasaCambio === null) {
+                document.getElementById("resultadoRecepcion").innerText = "No se pudo obtener la tasa de cambio.";
+                return;
+            }
+            let cantidadNecesaria = cantidadDeseada / (tasaCambio * 0.96);
+            const tasaExtra = monedaOrigen === "COP" ? 0.004 : 0;
+            const cantidadAntesComision = cantidadDeseada / (tasaCambio * (1 - tasaExtra));
+            const comision = cantidadAntesComision * 0.04;
+            cantidadNecesaria = cantidadAntesComision / 0.96;
+            document.getElementById("resultadoRecepcion").innerText = `Debe enviar: ${cantidadNecesaria.toFixed(2)} ${monedaOrigen}`;
+            document.getElementById("desgloseRecepcion").innerHTML = `
+                <p><strong>Tasa de Cambio:</strong> 1 ${monedaOrigen} = ${tasaCambio.toFixed(4)} ${monedaDestino}</p>
+                <p><strong>Monto Deseado:</strong> ${cantidadDeseada.toFixed(2)} ${monedaDestino}</p>
+                <p><strong>Tasa Extra (${(tasaExtra * 100).toFixed(2)}%):</strong> +${(cantidadDeseada * tasaExtra).toFixed(2)} ${monedaDestino}</p>
+                <p><strong>Monto Antes de Comisión:</strong> ${cantidadAntesComision.toFixed(2)} ${monedaDestino}</p>
+                <p><strong>Comisión (4%):</strong> +${comision.toFixed(2)} ${monedaDestino}</p>
+                <p><strong>Monto Necesario para Enviar:</strong> ${cantidadNecesaria.toFixed(2)} ${monedaOrigen}</p>
+            `;
+        }
+
+        function invertirMonedas(tab) {
+            const monedaOrigenSelect = tab === 'envio' ? document.getElementById("monedaOrigen") : document.getElementById("monedaOrigenRecepcion");
+            const monedaDestinoSelect = tab === 'envio' ? document.getElementById("monedaDestino") : document.getElementById("monedaDestinoRecepcion");
+            const temp = monedaOrigenSelect.value;
+            monedaOrigenSelect.value = monedaDestinoSelect.value;
+            monedaDestinoSelect.value = temp;
+            tab === 'envio' ? calcularEnvio() : calcularRecepcion();
+        }
+
+        function switchTab(event, tabName) {
+            const tabs = document.getElementsByClassName("tab");
+            for (let tab of tabs) tab.classList.remove("active");
+            event.currentTarget.classList.add("active");
+            const contents = document.getElementsByClassName("tab-content");
+            for (let content of contents) content.classList.remove("active");
+            document.getElementById(tabName).classList.add("active");
+        }
+
+        async function enviarDatosSheetDB(data) {
+            const response = await fetch(sheetDBURL, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(data)
+            });
+
+            if (response.ok) {
+                return (await response.json()).id; // Devuelve el ID del nuevo registro
+            } else {
+                alert('Error al enviar la solicitud: ' + response.statusText);
+                throw new Error(response.statusText);
+            }
+        }
+
+        async function obtenerUltimoNumeroOrden() {
+            const response = await fetch(sheetDBURL);
+            const data = await response.json();
+            return data.length ? data.length + 1 : 1;
+        }
+
+        async function aceptarCotizacionEnvio() {
+            const orderNumber = await obtenerUltimoNumeroOrden();
+
+            await enviarDatosSheetDB({
+                orderNumber,
+                cantidad: document.getElementById("cantidad").value,
+                monedaOrigen: document.getElementById("monedaOrigen").value,
+                monedaDestino: document.getElementById("monedaDestino").value,
+                resultado: document.getElementById("resultado").innerText,
+                fecha: new Date().toLocaleString()
+            });
+
+            alert('¡Solicitud enviada con éxito! Número de orden: ' + orderNumber);
+        }
+
+        async function aceptarCotizacionRecepcion() {
+            const orderNumber = await obtenerUltimoNumeroOrden();
+
+            await enviarDatosSheetDB({
+                orderNumber,
+                cantidadRecibir: document.getElementById("cantidadRecibir").value,
+                monedaOrigen: document.getElementById("monedaOrigenRecepcion").value,
+                monedaDestino: document.getElementById("monedaDestinoRecepcion").value,
+                resultadoRecepcion: document.getElementById("resultadoRecepcion").innerText,
+                fecha: new Date().toLocaleString()
+            });
+
+            alert('¡Solicitud enviada con éxito! Número de orden: ' + orderNumber);
+        }
+
+        window.addEventListener('DOMContentLoaded', (event) => {
+            document.getElementById("cantidad").addEventListener("input", calcularEnvio);
+            document.getElementById("monedaOrigen").addEventListener("change", calcularEnvio);
+            document.getElementById("monedaDestino").addEventListener("change", calcularEnvio);
+            document.getElementById("cantidadRecibir").addEventListener("input", calcularRecepcion);
+            document.getElementById("monedaOrigenRecepcion").addEventListener("change", calcularRecepcion);
+            document.getElementById("monedaDestinoRecepcion").addEventListener("change", calcularRecepcion);
+            document.getElementById("swapButtonEnvio").addEventListener("click", () => invertirMonedas('envio'));
+            document.getElementById("swapButtonRecepcion").addEventListener("click", () => invertirMonedas('recepcion'));
+        });
+    </script>
+</head>
+<body>
+    <div class="container">
+        <img src="Logo color horizontal.png" alt="ColocaPayments Logo">
+        <h1>Cotizador de envíos</h1>
+        <div class="tabs">
+            <div class="tab active" onclick="switchTab(event, 'envio')">Envía dinero</div>
+            <div class="tab" onclick="switchTab(event, 'recepcion')">Recibe dinero</div>
+        </div>
+        <div id="envio" class="tab-content active">
+            <label for="cantidad">Quiero enviar:</label>
+            <input type="number" id="cantidad" name="cantidad" placeholder="Ingrese la cantidad"><br>
+            <div class="flex-container">
+                <div>
+                    <label for="monedaOrigen">Moneda de Origen:</label>
+                    <select id="monedaOrigen" name="monedaOrigen">
+                        <option value="USD">USD</option>
+                        <option value="BRL">BRL</option>
+                        <option value="COP">COP</option>
+                        <option value="CLP">CLP</option>
+                        <option value="MXN">MXN</option>
+                    </select>
+                </div>
+                <button id="swapButtonEnvio" class="swap-button">⇆</button>
+                <div>
+                    <label for="monedaDestino">Moneda de Destino:</label>
+                    <select id="monedaDestino" name="monedaDestino">
+                        <option value="USD">USD</option>
+                        <option value="BRL">BRL</option>
+                        <option value="COP">COP</option>
+                        <option value="CLP">CLP</option>
+                        <option value="MXN">MXN</option>
+                    </select>
+                </div>
+            </div>
+            <h2 id="resultado">Recibirá:</h2>
+            <div id="desgloseEnvio" class="desglose"></div>
+            <button onclick="aceptarCotizacionEnvio()">Aceptar cotización</button>
+        </div>
+        <div id="recepcion" class="tab-content">
+            <label for="cantidadRecibir">Quiero recibir:</label>
+            <input type="number" id="cantidadRecibir" name="cantidadRecibir" placeholder="Ingrese la cantidad"><br>
+            <div class="flex-container">
+                <div>
+                    <label for="monedaOrigenRecepcion">Moneda de Origen:</label>
+                    <select id="monedaOrigenRecepcion" name="monedaOrigenRecepcion">
+                        <option value="USD">USD</option>
+                        <option value="BRL">BRL</option>
+                        <option value="COP">COP</option>
+                        <option value="CLP">CLP</option>
+                        <option value="MXN">MXN</option>
+                    </select>
+                </div>
+                <button id="swapButtonRecepcion" class="swap-button">⇆</button>
+                <div>
+                    <label for="monedaDestinoRecepcion">Moneda de Destino:</label>
+                    <select id="monedaDestinoRecepcion" name="monedaDestinoRecepcion">
+                        <option value="USD">USD</option>
+                        <option value="BRL">BRL</option>
+                        <option value="COP">COP</option>
+                        <option value="CLP">CLP</option>
+                        <option value="MXN">MXN</option>
+                    </select>
+                </div>
+            </div>
+            <h2 id="resultadoRecepcion">Debe enviar:</h2>
+            <div id="desgloseRecepcion" class="desglose"></div>
+            <button onclick="aceptarCotizacionRecepcion()">Aceptar cotización</button>
+        </div>
+    </div>
+</body>
+</html>
