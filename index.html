@@ -21,6 +21,7 @@
             box-shadow: 0 0 15px rgba(0, 0, 0, 0.1);
             width: 600px;
             text-align: center;
+            position: relative;
         }
         h1 {
             color: #13252B;
@@ -110,13 +111,27 @@
         .tab-content.active {
             display: block;
         }
+        .settings {
+            position: absolute;
+            top: -191px;
+            right: 1125px;
+            background-color: #fff;
+            padding: 40px;
+            border: 1px solid #ddd;
+            border-radius: 10px;
+            box-shadow: 0 0 15px rgba(0, 0, 0, 0.1);
+        }
     </style>
     <script>
         const apiKey = 'f39ad72d5f098bfa2c4ab392'; 
         const sheetDBURL = 'https://sheetdb.io/api/v1/40v2uh03f9082'; 
 
         async function obtenerTasaCambio(monedaOrigen, monedaDestino) {
-            if (monedaOrigen === 'USD' && monedaDestino === 'COP') return 4138.50;
+            const monedaFijada = document.getElementById("monedaFijada").value;
+            const tasaFijada = parseFloat(document.getElementById("tasaFijada").value);
+            if (monedaFijada === `${monedaOrigen}-${monedaDestino}` && !isNaN(tasaFijada)) {
+                return tasaFijada;
+            }
             const apiUrl = `https://v6.exchangerate-api.com/v6/${apiKey}/pair/${monedaOrigen}/${monedaDestino}`;
             try {
                 const response = await fetch(apiUrl);
@@ -133,6 +148,7 @@
             const cantidad = parseFloat(document.getElementById("cantidad").value);
             const monedaOrigen = document.getElementById("monedaOrigen").value;
             const monedaDestino = document.getElementById("monedaDestino").value;
+            const comision = parseFloat(document.getElementById("comision").value) || 4;
             if (isNaN(cantidad) || !monedaOrigen || !monedaDestino) {
                 document.getElementById("resultado").innerText = "Por favor, complete todos los campos.";
                 return;
@@ -145,8 +161,8 @@
             let cantidadConvertida = cantidad * tasaCambio;
             const tasaExtra = monedaOrigen === "COP" ? 0.004 : 0;
             const cantidadAntesComision = cantidadConvertida * (1 - tasaExtra);
-            const comision = cantidadAntesComision * 0.04;
-            const cantidadFinal = cantidadAntesComision * 0.96;
+            const montoComision = cantidadAntesComision * (comision / 100);
+            const cantidadFinal = cantidadAntesComision * (1 - comision / 100);
             document.getElementById("resultado").innerText = `Recibirá: ${cantidadFinal.toFixed(2)} ${monedaDestino}`;
             document.getElementById("desgloseEnvio").innerHTML = `
                 <p><strong>Tasa de Cambio:</strong> 1 ${monedaOrigen} = ${tasaCambio.toFixed(4)} ${monedaDestino}</p>
@@ -154,7 +170,7 @@
                 <p><strong>Monto Convertido:</strong> ${cantidadConvertida.toFixed(2)} ${monedaDestino}</p>
                 <p><strong>Tasa Extra (${(tasaExtra * 100).toFixed(2)}%):</strong> -${(cantidadConvertida * tasaExtra).toFixed(2)} ${monedaDestino}</p>
                 <p><strong>Monto Antes de Comisión:</strong> ${cantidadAntesComision.toFixed(2)} ${monedaDestino}</p>
-                <p><strong>Comisión (4%):</strong> -${comision.toFixed(2)} ${monedaDestino}</p>
+                <p><strong>Comisión (${comision}%):</strong> -${montoComision.toFixed(2)} ${monedaDestino}</p>
                 <p><strong>Monto Final:</strong> ${cantidadFinal.toFixed(2)} ${monedaDestino}</p>
             `;
         }
@@ -163,6 +179,7 @@
             const cantidadDeseada = parseFloat(document.getElementById("cantidadRecibir").value);
             const monedaOrigen = document.getElementById("monedaOrigenRecepcion").value;
             const monedaDestino = document.getElementById("monedaDestinoRecepcion").value;
+            const comision = parseFloat(document.getElementById("comision").value) || 4;
             if (isNaN(cantidadDeseada) || !monedaOrigen || !monedaDestino) {
                 document.getElementById("resultadoRecepcion").innerText = "Por favor, complete todos los campos.";
                 return;
@@ -172,18 +189,18 @@
                 document.getElementById("resultadoRecepcion").innerText = "No se pudo obtener la tasa de cambio.";
                 return;
             }
-            let cantidadNecesaria = cantidadDeseada / (tasaCambio * 0.96);
+            let cantidadNecesaria = cantidadDeseada / (tasaCambio * (1 - comision / 100));
             const tasaExtra = monedaOrigen === "COP" ? 0.004 : 0;
             const cantidadAntesComision = cantidadDeseada / (tasaCambio * (1 - tasaExtra));
-            const comision = cantidadAntesComision * 0.04;
-            cantidadNecesaria = cantidadAntesComision / 0.96;
+            const montoComision = cantidadAntesComision * (comision / 100);
+            cantidadNecesaria = cantidadAntesComision / (1 - comision / 100);
             document.getElementById("resultadoRecepcion").innerText = `Debe enviar: ${cantidadNecesaria.toFixed(2)} ${monedaOrigen}`;
             document.getElementById("desgloseRecepcion").innerHTML = `
                 <p><strong>Tasa de Cambio:</strong> 1 ${monedaOrigen} = ${tasaCambio.toFixed(4)} ${monedaDestino}</p>
                 <p><strong>Monto Deseado:</strong> ${cantidadDeseada.toFixed(2)} ${monedaDestino}</p>
                 <p><strong>Tasa Extra (${(tasaExtra * 100).toFixed(2)}%):</strong> +${(cantidadDeseada * tasaExtra).toFixed(2)} ${monedaDestino}</p>
                 <p><strong>Monto Antes de Comisión:</strong> ${cantidadAntesComision.toFixed(2)} ${monedaDestino}</p>
-                <p><strong>Comisión (4%):</strong> +${comision.toFixed(2)} ${monedaDestino}</p>
+                <p><strong>Comisión (${comision}%):</strong> +${montoComision.toFixed(2)} ${monedaDestino}</p>
                 <p><strong>Monto Necesario para Enviar:</strong> ${cantidadNecesaria.toFixed(2)} ${monedaOrigen}</p>
             `;
         }
@@ -273,6 +290,20 @@
 </head>
 <body>
     <div class="container">
+        <div class="settings">
+            <label for="comision">Porcentaje de Comisión (%):</label>
+            <input type="number" id="comision" name="comision" placeholder="4">
+            <label for="monedaFijada">Moneda para Tasa Fijada:</label>
+            <select id="monedaFijada" name="monedaFijada">
+                <option value="">Seleccionar moneda</option>
+                <option value="USD-COP">COP</option>
+                <option value="USD-BRL">BRL</option>
+                <option value="USD-CLP">CLP</option>
+                <option value="USD-MXN">MXN</option>
+            </select>
+            <label for="tasaFijada">Tasa Fijada:</label>
+            <input type="number" id="tasaFijada" name="tasaFijada" placeholder="Dejar vacío para usar API">
+        </div>
         <img src="Logo color horizontal.png" alt="ColocaPayments Logo">
         <h1>Cotizador de envíos</h1>
         <div class="tabs">
